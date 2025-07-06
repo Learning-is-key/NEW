@@ -1,7 +1,8 @@
-import base64
-from fpdf import FPDF
 import streamlit as st
 import fitz  # PyMuPDF
+import base64
+import os
+from fpdf import FPDF
 from db import init_db, register_user, login_user, save_upload, get_user_history
 
 # --- INIT DB ---
@@ -44,13 +45,32 @@ def signup_section():
         else:
             st.error("User already exists.")
 
+# --- PDF GENERATOR ---
+def generate_pdf(text, filename="summary.pdf"):
+    if not os.path.exists("DejaVuSans.ttf"):
+        import urllib.request
+        urllib.request.urlretrieve(
+            "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf",
+            "DejaVuSans.ttf"
+        )
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+    pdf.set_font("DejaVu", size=12)
+    for line in text.split('\n'):
+        pdf.multi_cell(0, 10, line)
+    pdf.output(filename)
+    return filename
+
 # --- MAIN APP ---
 def app_main():
     st.sidebar.title("📚 Navigation")
     choice = st.sidebar.radio("Go to", ["Upload & Simplify", "My History", "Logout"])
 
     if choice == "Upload & Simplify":
-        st.subheader("📤 Upload Your Legal Document (PDF)")
+        st.subheader("📄 Upload Your Legal Document (PDF)")
         uploaded_file = st.file_uploader("Select a legal PDF", type=["pdf"])
 
         if uploaded_file:
@@ -114,14 +134,15 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
 
                 st.subheader("✅ Simplified Summary")
                 st.success(fake_output)
+
                 generate_pdf(fake_output)
-  
+
                 with open("summary.pdf", "rb") as f:
-                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                    base64_pdf = base64.b64encode(f.read()).decode("utf-8")
                     download_link = f'<a href="data:application/octet-stream;base64,{base64_pdf}" download="summary.pdf">📄 Download This Summary as PDF</a>'
                     st.markdown(download_link, unsafe_allow_html=True)
 
-                    save_upload(st.session_state.user_email, uploaded_file.name, fake_output)
+                save_upload(st.session_state.user_email, uploaded_file.name, fake_output)
 
     elif choice == "My History":
         st.subheader("📂 Your Uploaded History")
@@ -137,15 +158,7 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
         st.session_state.logged_in = False
         st.session_state.user_email = ""
         st.success("Logged out. Refresh to login again.")
-def generate_pdf(text, filename="summary.pdf"):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Arial", size=12)
-    for line in text.split('\n'):
-        pdf.multi_cell(0, 10, line)
-    pdf.output(filename)
-    return filename
+
 # --- ROUTING ---
 if not st.session_state.logged_in:
     tab = st.tabs(["Login", "Sign Up"])
