@@ -1,6 +1,5 @@
 import streamlit as st
 import fitz  # PyMuPDF
-import openai
 from db import init_db, register_user, login_user, save_upload, get_user_history
 
 # --- INIT DB ---
@@ -18,6 +17,8 @@ if "mode" not in st.session_state:
     st.session_state.mode = ""
 if "api_key" not in st.session_state:
     st.session_state.api_key = ""
+if "mode_chosen" not in st.session_state:
+    st.session_state.mode_chosen = False
 
 # --- UI HEADER ---
 st.markdown("<h1 style='text-align: center;'>📜 LegalEase 2.0</h1>", unsafe_allow_html=True)
@@ -47,13 +48,17 @@ def signup_section():
         else:
             st.error("User already exists.")
 
+# --- MODE SELECTOR ---
 def choose_mode():
     st.subheader("Choose how you'd like to use LegalEase:")
-    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
-    st.session_state.mode = mode
-    if mode == "Use Your Own OpenAI API Key":
-        api_key = st.text_input("Paste your OpenAI API Key", type="password")
-        st.session_state.api_key = api_key
+    st.session_state.mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
+    if st.session_state.mode == "Use Your Own OpenAI API Key":
+        st.session_state.api_key = st.text_input("Paste your OpenAI API Key", type="password")
+    if st.button("Continue"):
+        if st.session_state.mode == "Use Your Own OpenAI API Key" and not st.session_state.api_key:
+            st.warning("Please enter your API key to continue.")
+        else:
+            st.session_state.mode_chosen = True
 
 # --- MAIN APP ---
 def app_main():
@@ -79,20 +84,17 @@ def app_main():
 
                 if st.session_state.mode == "Use Your Own OpenAI API Key":
                     if st.session_state.api_key:
-                        try:
-                            openai.api_key = st.session_state.api_key
-                            with st.spinner("Simplifying with AI..."):
-                                response = openai.ChatCompletion.create(
-                                    model="gpt-3.5-turbo",
-                                    messages=[
-                                        {"role": "system", "content": "You're a legal document simplifier."},
-                                        {"role": "user", "content": full_text}
-                                    ]
-                                )
-                                simplified = response.choices[0].message.content
-                        except Exception as e:
-                            st.error(f"OpenAI API error: {str(e)}")
-                            return
+                        import openai
+                        openai.api_key = st.session_state.api_key
+                        with st.spinner("Simplifying with AI..."):
+                            response = openai.ChatCompletion.create(
+                                model="gpt-3.5-turbo",
+                                messages=[
+                                    {"role": "system", "content": "You're a legal document simplifier."},
+                                    {"role": "user", "content": full_text}
+                                ]
+                            )
+                            simplified = response.choices[0].message.content
                     else:
                         st.warning("Please enter your API key to use real AI mode.")
                         return
@@ -154,6 +156,7 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
         st.session_state.user_email = ""
         st.session_state.mode = ""
         st.session_state.api_key = ""
+        st.session_state.mode_chosen = False
         st.success("Logged out. Refresh to login again.")
 
 # --- ROUTING ---
@@ -164,7 +167,7 @@ if not st.session_state.logged_in:
     with tab[1]:
         signup_section()
 else:
-    if not st.session_state.mode:
+    if not st.session_state.mode_chosen:
         choose_mode()
     else:
         app_main()
