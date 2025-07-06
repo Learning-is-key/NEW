@@ -3,7 +3,7 @@ from openai import OpenAI
 import fitz  # PyMuPDF
 
 # 🔑 Replace with your real OpenAI API key
-client = OpenAI(api_key="sk-REPLACE-WITH-YOUR-OPENAI-KEY")
+client = OpenAI(api_key="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")
 
 st.set_page_config(page_title="LegalEase - Simplify Legal Documents", layout="centered")
 
