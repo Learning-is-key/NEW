@@ -112,6 +112,13 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
 
                 st.subheader("✅ Simplified Summary")
                 st.success(fake_output)
+                generate_pdf(fake_output)
+
+with open("summary.pdf", "rb") as f:
+    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+    download_link = f'<a href="data:application/octet-stream;base64,{base64_pdf}" download="summary.pdf">📄 Download This Summary as PDF</a>'
+    st.markdown(download_link, unsafe_allow_html=True)
+
                 save_upload(st.session_state.user_email, uploaded_file.name, fake_output)
 
     elif choice == "My History":
@@ -128,7 +135,15 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
         st.session_state.logged_in = False
         st.session_state.user_email = ""
         st.success("Logged out. Refresh to login again.")
-
+def generate_pdf(text, filename="summary.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_font("Arial", size=12)
+    for line in text.split('\n'):
+        pdf.multi_cell(0, 10, line)
+    pdf.output(filename)
+    return filename
 # --- ROUTING ---
 if not st.session_state.logged_in:
     tab = st.tabs(["Login", "Sign Up"])
