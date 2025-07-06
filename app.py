@@ -2,6 +2,8 @@ import streamlit as st
 import fitz  # PyMuPDF
 import requests
 from db import init_db, register_user, login_user, save_upload, get_user_history
+hf_token = st.secrets["HF_TOKEN"]
+
 
 # --- INIT DB ---
 init_db()
