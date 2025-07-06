@@ -51,13 +51,19 @@ def signup_section():
 # --- MODE SELECTOR ---
 def choose_mode():
     st.subheader("Choose how you'd like to use LegalEase:")
-    st.session_state.mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
-    if st.session_state.mode == "Use Your Own OpenAI API Key":
-        st.session_state.api_key = st.text_input("Paste your OpenAI API Key", type="password")
+    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
+
+    if mode == "Use Your Own OpenAI API Key":
+        api_key = st.text_input("Paste your OpenAI API Key", type="password")
+    else:
+        api_key = ""
+
     if st.button("Continue"):
-        if st.session_state.mode == "Use Your Own OpenAI API Key" and not st.session_state.api_key:
+        if mode == "Use Your Own OpenAI API Key" and not api_key:
             st.warning("Please enter your API key to continue.")
         else:
+            st.session_state.mode = mode
+            st.session_state.api_key = api_key
             st.session_state.mode_chosen = True
 
 # --- MAIN APP ---
