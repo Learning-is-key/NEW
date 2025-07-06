@@ -1,11 +1,7 @@
 import streamlit as st
 import fitz  # PyMuPDF
+import requests
 from db import init_db, register_user, login_user, save_upload, get_user_history
-
-# Optional: Hugging Face
-from transformers import pipeline
-from openai import OpenAI
-from openai.error import RateLimitError
 
 # --- INIT DB ---
 init_db()
@@ -56,7 +52,7 @@ def signup_section():
 # --- MODE SELECTOR ---
 def choose_mode():
     st.subheader("Choose how you'd like to use LegalEase:")
-    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key", "Use Open-Source AI (no key)"])
+    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key", "Use Open-Source AI via Hugging Face"])
 
     if mode == "Use Your Own OpenAI API Key":
         api_key = st.text_input("Paste your OpenAI API Key", type="password")
@@ -71,15 +67,22 @@ def choose_mode():
             st.session_state.api_key = api_key
             st.session_state.mode_chosen = True
 
-# --- HF PIPELINE ---
-@st.cache_resource
-def get_open_source_summarizer():
-    return pipeline(
-        "text-generation",
-        model="mistralai/Mistral-7B-Instruct-v0.1",
-        max_length=1024,
-        device_map="auto"
-    )
+# --- HUGGING FACE API WRAPPER ---
+@st.cache_data
+def query_huggingface_api(prompt):
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+    headers = {"Authorization": f"Bearer {hf_token}"}  # Replace with your real Hugging Face token
+
+    response = requests.post(API_URL, headers=headers, json={
+        "inputs": prompt,
+        "parameters": {"temperature": 0.7, "max_new_tokens": 512}
+    })
+
+    output = response.json()
+    if isinstance(output, list) and "generated_text" in output[0]:
+        return output[0]["generated_text"]
+    else:
+        return "Error from Hugging Face API or model is loading. Please retry later."
 
 # --- MAIN APP ---
 def app_main():
@@ -104,72 +107,39 @@ def app_main():
                 name = uploaded_file.name.lower()
 
                 if st.session_state.mode == "Use Your Own OpenAI API Key":
-                    if st.session_state.api_key:
-                        try:
-                            client = OpenAI(api_key=st.session_state.api_key)
-                            with st.spinner("Simplifying with OpenAI..."):
-                                response = client.chat.completions.create(
-                                    model="gpt-3.5-turbo",
-                                    messages=[
-                                        {"role": "system", "content": "You're a legal document simplifier."},
-                                        {"role": "user", "content": full_text}
-                                    ]
-                                )
-                                simplified = response.choices[0].message.content
-                        except RateLimitError:
-                            st.error("Rate limit reached or quota exceeded. Please check your OpenAI usage dashboard.")
-                            return
-                    else:
-                        st.warning("Please enter your API key to use real AI mode.")
+                    try:
+                        from openai import OpenAI
+                        from openai.error import RateLimitError
+                        client = OpenAI(api_key=st.session_state.api_key)
+                        with st.spinner("Simplifying with OpenAI..."):
+                            response = client.chat.completions.create(
+                                model="gpt-3.5-turbo",
+                                messages=[
+                                    {"role": "system", "content": "You're a legal document simplifier."},
+                                    {"role": "user", "content": full_text}
+                                ]
+                            )
+                            simplified = response.choices[0].message.content
+                    except Exception as e:
+                        st.error(f"OpenAI error: {str(e)}")
                         return
 
-                elif st.session_state.mode == "Use Open-Source AI (no key)":
-                    summarizer = get_open_source_summarizer()
+                elif st.session_state.mode == "Use Open-Source AI via Hugging Face":
                     prompt = f"""You are a legal assistant. Simplify the following legal document in plain English:
 
 {full_text}
 
 Simplified version:"""
-                    with st.spinner("Simplifying with open-source AI..."):
-                        result = summarizer(prompt, do_sample=True, top_k=50, temperature=0.7)
-                        simplified = result[0]["generated_text"].split("Simplified version:")[-1].strip()
+                    with st.spinner("Simplifying using Hugging Face Inference API..."):
+                        simplified = query_huggingface_api(prompt)
 
                 else:
                     if "rental" in name:
-                        simplified = """This is a rental agreement made between Mr. Rakesh Kumar (the property owner) and Mr. Anil Reddy (the person renting).
-
-- The house is in Jubilee Hills, Hyderabad.
-- Rent is ₹18,000/month, paid by the 5th.
-- Anil pays a ₹36,000 security deposit.
-- The rental period is 11 months: from August 1, 2025, to June 30, 2026.
-- Either side can cancel the agreement with 1 month’s written notice.
-- Anil can't sub-rent the house to anyone else unless Rakesh agrees.
-
-In short: this document explains the rules of staying in the rented house, money terms, and how both sides can exit the deal."""
+                        simplified = "Demo summary for rental agreement."
                     elif "nda" in name:
-                        simplified = """This Non-Disclosure Agreement (NDA) is between TechNova Pvt. Ltd. and Mr. Kiran Rao.
-
-- Kiran will receive sensitive business information from TechNova.
-- He agrees to keep this confidential and not use it for anything other than their business discussions.
-- This includes technical data, strategies, client info, designs, etc.
-- He cannot share it, even after the project ends, for 3 years.
-- Exceptions: if info is public, received legally from others, or required by law.
-- If he breaks the agreement, TechNova can take legal action, including asking the court to stop him immediately.
-
-In short: Kiran must not reveal or misuse any business secrets he gets from TechNova during their potential partnership."""
+                        simplified = "Demo summary for NDA document."
                     elif "employment" in name:
-                        simplified = """This is an official job contract between GlobalTech Ltd. and Ms. Priya Sharma.
-
-- Priya will join as a Senior Software Engineer from August 1, 2025.
-- She will earn Rs. 12,00,000/year, including bonuses and allowances.
-- She must work 40+ hours/week, either from office or remotely.
-- First 6 months = probation, 15-day notice for quitting or firing.
-- After that, it becomes 60-day notice.
-- She must not share company secrets or join rival companies for 1 year after leaving.
-- Any inventions or code she builds belong to the company.
-- She gets 20 paid leaves + public holidays.
-
-In short: This contract outlines Priya’s job, salary, rules during and after employment, and what happens if she quits or is fired."""
+                        simplified = "Demo summary for employment contract."
                     else:
                         simplified = "Sample summary: Could not identify document type."
 
