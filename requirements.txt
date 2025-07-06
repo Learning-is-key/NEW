@@ -2,13 +2,3 @@ streamlit
 openai
 PyMuPDF
 fpdf
-``>
-4. Click **Commit Changes**
-
----
-
-### ✅ Step 2: Add this to the **top of your `app.py`** (with your imports)
-
-```python
-from fpdf import FPDF
-import base64
