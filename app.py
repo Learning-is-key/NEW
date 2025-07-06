@@ -1,3 +1,5 @@
+import base64
+from fpdf import FPDF
 import streamlit as st
 import fitz  # PyMuPDF
 from db import init_db, register_user, login_user, save_upload, get_user_history
@@ -110,11 +112,11 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                 else:
                     fake_output = "This appears to be a legal document. However, I couldn’t auto-identify its type. Please consult a legal expert for proper clarification."
 
-                    st.subheader("✅ Simplified Summary")
-                    st.success(fake_output)
-                    generate_pdf(fake_output)
+                st.subheader("✅ Simplified Summary")
+                st.success(fake_output)
+                generate_pdf(fake_output)
   
-                    with open("summary.pdf", "rb") as f:
+                with open("summary.pdf", "rb") as f:
                     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
                     download_link = f'<a href="data:application/octet-stream;base64,{base64_pdf}" download="summary.pdf">📄 Download This Summary as PDF</a>'
                     st.markdown(download_link, unsafe_allow_html=True)
