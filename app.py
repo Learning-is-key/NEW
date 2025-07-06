@@ -2,6 +2,11 @@ import streamlit as st
 import fitz  # PyMuPDF
 from db import init_db, register_user, login_user, save_upload, get_user_history
 
+# Optional: Hugging Face
+from transformers import pipeline
+from openai import OpenAI
+from openai.error import RateLimitError
+
 # --- INIT DB ---
 init_db()
 
@@ -51,7 +56,7 @@ def signup_section():
 # --- MODE SELECTOR ---
 def choose_mode():
     st.subheader("Choose how you'd like to use LegalEase:")
-    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
+    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key", "Use Open-Source AI (no key)"])
 
     if mode == "Use Your Own OpenAI API Key":
         api_key = st.text_input("Paste your OpenAI API Key", type="password")
@@ -65,6 +70,16 @@ def choose_mode():
             st.session_state.mode = mode
             st.session_state.api_key = api_key
             st.session_state.mode_chosen = True
+
+# --- HF PIPELINE ---
+@st.cache_resource
+def get_open_source_summarizer():
+    return pipeline(
+        "text-generation",
+        model="mistralai/Mistral-7B-Instruct-v0.1",
+        max_length=1024,
+        device_map="auto"
+    )
 
 # --- MAIN APP ---
 def app_main():
@@ -90,20 +105,35 @@ def app_main():
 
                 if st.session_state.mode == "Use Your Own OpenAI API Key":
                     if st.session_state.api_key:
-                        from openai import OpenAI
-                        client = OpenAI(api_key=st.session_state.api_key)
-                        with st.spinner("Simplifying with AI..."):
-                            response = client.chat.completions.create(
-                                model="gpt-3.5-turbo",
-                                messages=[
-                                    {"role": "system", "content": "You're a legal document simplifier."},
-                                    {"role": "user", "content": full_text}
-                                ]
-                            )
-                            simplified = response.choices[0].message.content
+                        try:
+                            client = OpenAI(api_key=st.session_state.api_key)
+                            with st.spinner("Simplifying with OpenAI..."):
+                                response = client.chat.completions.create(
+                                    model="gpt-3.5-turbo",
+                                    messages=[
+                                        {"role": "system", "content": "You're a legal document simplifier."},
+                                        {"role": "user", "content": full_text}
+                                    ]
+                                )
+                                simplified = response.choices[0].message.content
+                        except RateLimitError:
+                            st.error("Rate limit reached or quota exceeded. Please check your OpenAI usage dashboard.")
+                            return
                     else:
                         st.warning("Please enter your API key to use real AI mode.")
                         return
+
+                elif st.session_state.mode == "Use Open-Source AI (no key)":
+                    summarizer = get_open_source_summarizer()
+                    prompt = f"You are a legal assistant. Simplify the following legal document in plain English:
+
+{full_text}
+
+Simplified version:"
+                    with st.spinner("Simplifying with open-source AI..."):
+                        result = summarizer(prompt, do_sample=True, top_k=50, temperature=0.7)
+                        simplified = result[0]["generated_text"].split("Simplified version:")[-1].strip()
+
                 else:
                     if "rental" in name:
                         simplified = """This is a rental agreement made between Mr. Rakesh Kumar (the property owner) and Mr. Anil Reddy (the person renting).
