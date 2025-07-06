@@ -74,28 +74,40 @@ def choose_mode():
 # --- HUGGING FACE API WRAPPER ---
 @st.cache_data
 def query_huggingface_api(prompt):
-    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
-
+    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
     headers = {"Authorization": f"Bearer {hf_token}"}
 
-    response = requests.post(API_URL, headers=headers, json={
-        "inputs": prompt,
-        "parameters": {"temperature": 0.7, "max_new_tokens": 512}
-    })
-
-    if response.status_code != 200:
-        return f"❌ API Error {response.status_code}: {response.text}"
-
     try:
+        response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+
+        if response.status_code != 200:
+            return f"❌ API Error {response.status_code}: {response.text}"
+
         output = response.json()
+
+        # Check various possible outputs depending on model
         if isinstance(output, list):
-            return output[0].get("generated_text", "⚠️ No text generated.")
-        elif "error" in output:
-            return f"⚠️ HuggingFace API Error: {output['error']}"
+            if "generated_text" in output[0]:
+                return output[0]["generated_text"]
+            elif "summary_text" in output[0]:
+                return output[0]["summary_text"]
+            elif "translation_text" in output[0]:
+                return output[0]["translation_text"]
+            elif "output" in output[0]:
+                return output[0]["output"]
+            else:
+                return f"⚠️ Unexpected output format: {output}"
         else:
-            return "⚠️ Unexpected response format."
-    except ValueError:
-        return f"❌ Failed to decode JSON. Raw: {response.text}"
+            return "⚠️ Response not in expected list format."
+
+    except requests.exceptions.RequestException as req_err:
+        return f"❌ Network error: {req_err}"
+
+    except ValueError as json_err:
+        return f"❌ JSON decode error: {json_err}\nRaw response: {response.text}"
+
+    except Exception as e:
+        return f"❌ Unexpected error: {str(e)}"
 
 # --- MAIN APP ---
 def app_main():
