@@ -71,28 +71,6 @@ def choose_mode():
 
 # --- HUGGING FACE API WRAPPER ---
 @st.cache_data
-def query_huggingface_api(prompt):
-    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
-    headers = {"Authorization": f"Bearer {hf_token}"}
-
-    response = requests.post(API_URL, headers=headers, json={
-        "inputs": prompt,
-        "parameters": {"temperature": 0.7, "max_new_tokens": 512}
-    })
-
-    if response.status_code != 200:
-        return f"❌ API Error {response.status_code}: {response.text}"
-
-    try:
-        output = response.json()
-        if isinstance(output, list) and "generated_text" in output[0]:
-            return output[0]["generated_text"]
-        elif "error" in output:
-            return f"⚠️ HuggingFace API Error: {output['error']}"
-        else:
-            return "⚠️ Unexpected response format."
-    except ValueError:
-        return f"❌ Response not JSON. Raw: {response.text}"
 
         # Check if output is as expected
         if isinstance(output, list) and "generated_text" in output[0]:
@@ -116,7 +94,29 @@ def query_huggingface_api(prompt):
         return "Error from Hugging Face API or model is loading. Please retry later."
 
 # --- MAIN APP ---
-def app_main():
+def app_main():def query_huggingface_api(prompt):
+    API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
+    headers = {"Authorization": f"Bearer {hf_token}"}
+
+    response = requests.post(API_URL, headers=headers, json={
+        "inputs": prompt,
+        "parameters": {"temperature": 0.7, "max_new_tokens": 512}
+    })
+
+    if response.status_code != 200:
+        return f"❌ API Error {response.status_code}: {response.text}"
+
+    try:
+        output = response.json()
+        if isinstance(output, list):
+            return output[0].get("generated_text", "⚠️ No text generated.")
+        elif "error" in output:
+            return f"⚠️ HuggingFace API Error: {output['error']}"
+        else:
+            return "⚠️ Unexpected response format."
+    except ValueError:
+        return f"❌ Failed to decode JSON. Raw: {response.text}"
+
     st.sidebar.title("📚 Navigation")
     choice = st.sidebar.radio("Go to", ["Upload & Simplify", "My History", "Logout"])
 
