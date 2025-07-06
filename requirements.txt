@@ -1,4 +1,7 @@
 streamlit
 PyMuPDF
 openai>=1.12.0
-
+transformers
+torch
+accelerate
+sentencepiece
