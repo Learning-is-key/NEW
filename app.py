@@ -74,7 +74,8 @@ def choose_mode():
 # --- HUGGING FACE API WRAPPER ---
 @st.cache_data
 def query_huggingface_api(prompt):
-    API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+
     headers = {"Authorization": f"Bearer {hf_token}"}
 
     response = requests.post(API_URL, headers=headers, json={
