@@ -8,42 +8,6 @@ init_db()
 # --- CONFIG ---
 st.set_page_config(page_title="LegalEase 2.0", layout="centered", page_icon="📜")
 
-# --- DEMO SUMMARIES ---
-rental_demo_summary = """This is a rental agreement made between Mr. Rakesh Kumar (the property owner) and Mr. Anil Reddy (the person renting).
-
-- The house is in Jubilee Hills, Hyderabad.
-- Rent is ₹18,000/month, paid by the 5th.
-- Anil pays a ₹36,000 security deposit.
-- The rental period is 11 months: from August 1, 2025, to June 30, 2026.
-- Either side can cancel the agreement with 1 month’s written notice.
-- Anil can't sub-rent the house to anyone else unless Rakesh agrees.
-
-In short: this document explains the rules of staying in the rented house, money terms, and how both sides can exit the deal."""
-
-nda_demo_summary = """This Non-Disclosure Agreement (NDA) is between TechNova Pvt. Ltd. and Mr. Kiran Rao.
-
-- Kiran will receive sensitive business information from TechNova.
-- He agrees to keep this confidential and not use it for anything other than their business discussions.
-- This includes technical data, strategies, client info, designs, etc.
-- He cannot share it, even after the project ends, for 3 years.
-- Exceptions: if info is public, received legally from others, or required by law.
-- If he breaks the agreement, TechNova can take legal action, including asking the court to stop him immediately.
-
-In short: Kiran must not reveal or misuse any business secrets he gets from TechNova during their potential partnership."""
-
-employment_demo_summary = """This is an official job contract between GlobalTech Ltd. and Ms. Priya Sharma.
-
-- Priya will join as a Senior Software Engineer from August 1, 2025.
-- She will earn Rs. 12,00,000/year, including bonuses and allowances.
-- She must work 40+ hours/week, either from office or remotely.
-- First 6 months = probation, 15-day notice for quitting or firing.
-- After that, it becomes 60-day notice.
-- She must not share company secrets or join rival companies for 1 year after leaving.
-- Any inventions or code she builds belong to the company.
-- She gets 20 paid leaves + public holidays.
-
-In short: This contract outlines Priya’s job, salary, rules during and after employment, and what happens if she quits or is fired."""
-
 # --- SESSION STATE ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -68,6 +32,7 @@ def login_section():
         if user:
             st.session_state.logged_in = True
             st.session_state.user_email = email
+            st.experimental_rerun()
         else:
             st.error("Invalid email or password.")
 
@@ -86,6 +51,11 @@ def choose_mode():
     st.session_state.mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
     if st.session_state.mode == "Use Your Own OpenAI API Key":
         st.session_state.api_key = st.text_input("Paste your OpenAI API Key", type="password")
+    if st.button("Continue"):
+        if st.session_state.mode == "Use Your Own OpenAI API Key" and not st.session_state.api_key:
+            st.warning("Please provide your API key.")
+        else:
+            st.experimental_rerun()
 
 # --- MAIN APP ---
 def app_main():
@@ -110,33 +80,30 @@ def app_main():
                 name = uploaded_file.name.lower()
 
                 if st.session_state.mode == "Use Your Own OpenAI API Key":
-                    if st.session_state.api_key:
+                    try:
                         import openai
-                        from openai import OpenAI
-                        client = OpenAI(api_key=st.session_state.api_key)
-                        try:
-                            with st.spinner("Simplifying with AI..."):
-                                response = client.chat.completions.create(
-                                    model="gpt-3.5-turbo",
-                                    messages=[
-                                        {"role": "system", "content": "You're a legal document simplifier."},
-                                        {"role": "user", "content": full_text}
-                                    ]
-                                )
-                                simplified = response.choices[0].message.content
-                        except Exception as e:
-                            st.error(f"OpenAI API Error: {str(e)}")
-                            return
-                    else:
-                        st.warning("Please enter your API key to use real AI mode.")
-                        return
+                        openai.api_key = st.session_state.api_key
+                        with st.spinner("Simplifying with AI..."):
+                            response = openai.chat.completions.create(
+                                model="gpt-3.5-turbo",
+                                messages=[
+                                    {"role": "system", "content": "You're a legal document simplifier."},
+                                    {"role": "user", "content": full_text}
+                                ]
+                            )
+                            simplified = response.choices[0].message.content
+                    except Exception as e:
+                        simplified = f"⚠️ Error while using your API: {str(e)}"
                 else:
                     if "rental" in name:
-                        simplified = rental_demo_summary
+                        simplified = """This is a rental agreement between Mr. Rakesh Kumar and Mr. Anil Reddy...
+                        (demo content)"""
                     elif "nda" in name:
-                        simplified = nda_demo_summary
+                        simplified = """This NDA is between TechNova Pvt. Ltd. and Mr. Kiran Rao...
+                        (demo content)"""
                     elif "employment" in name:
-                        simplified = employment_demo_summary
+                        simplified = """This is an employment contract between GlobalTech Ltd. and Ms. Priya Sharma...
+                        (demo content)"""
                     else:
                         simplified = "Sample summary: Could not identify document type."
 
@@ -161,18 +128,17 @@ def app_main():
         st.session_state.api_key = ""
         st.success("Logged out. Refresh to login again.")
 
-# --- ROUTING ---
+# --- ROUTING LOGIC ---
 if not st.session_state.logged_in:
     tab = st.tabs(["Login", "Sign Up"])
     with tab[0]:
         login_section()
     with tab[1]:
         signup_section()
+elif not st.session_state.mode:
+    choose_mode()
 else:
-    if not st.session_state.mode:
-        choose_mode()
-    else:
-        app_main()
+    app_main()
 
 # --- FOOTER ---
 st.markdown("<hr><p style='text-align: center; color: gray;'>© 2025 LegalEase. Built with ❤️ in Streamlit.</p>", unsafe_allow_html=True)
