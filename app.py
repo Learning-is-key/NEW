@@ -1,9 +1,5 @@
 import streamlit as st
-from openai import OpenAI
 import fitz  # PyMuPDF
-
-# 🔑 Replace with your real OpenAI API key
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.set_page_config(page_title="LegalEase - Simplify Legal Documents", layout="centered")
 
@@ -25,22 +21,17 @@ if uploaded_file:
 
     if st.button("🧠 Simplify Legal Terms"):
         with st.spinner("Thinking like a lawyer... but cooler."):
-            prompt = (
-                "You are a helpful assistant that explains legal documents in simple language. "
-                "Read this and explain every important point like you would to a regular person:\n\n"
-                + full_text
-            )
+            fake_output = """
+This is a rental agreement made between Mr. Rakesh Kumar (the property owner) and Mr. Anil Reddy (the person renting).
 
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.6,
-                    max_tokens=1500
-                )
-                result = response.choices[0].message.content
-                st.subheader("✅ Simplified Explanation:")
-                st.text_area("Easy-to-Understand Legal Summary", result, height=300)
+- The house is in Jubilee Hills, Hyderabad.
+- Rent is ₹18,000/month, paid by the 5th.
+- Anil pays a ₹36,000 security deposit.
+- The rental period is 11 months: from August 1, 2025, to June 30, 2026.
+- Either side can cancel the agreement with 1 month’s written notice.
+- Anil can't sub-rent the house to anyone else unless Rakesh agrees.
 
-            except Exception as e:
-                st.error(f"Error: {e}")
+In short: this document explains the rules of staying in the rented house, money terms, and how both sides can exit the deal.
+"""
+            st.subheader("✅ Simplified Explanation:")
+            st.text_area("Easy-to-Understand Legal Summary", fake_output, height=300)
