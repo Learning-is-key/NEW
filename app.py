@@ -125,11 +125,11 @@ def app_main():
 
                 elif st.session_state.mode == "Use Open-Source AI (no key)":
                     summarizer = get_open_source_summarizer()
-                    prompt = f"You are a legal assistant. Simplify the following legal document in plain English:
+                    prompt = f"""You are a legal assistant. Simplify the following legal document in plain English:
 
 {full_text}
 
-Simplified version:"
+Simplified version:"""
                     with st.spinner("Simplifying with open-source AI..."):
                         result = summarizer(prompt, do_sample=True, top_k=50, temperature=0.7)
                         simplified = result[0]["generated_text"].split("Simplified version:")[-1].strip()
