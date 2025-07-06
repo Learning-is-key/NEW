@@ -1,9 +1,5 @@
 streamlit
 openai>=1.12.0
-transformers
-torch
-accelerate
-sentencepiece
 requests
 PyMuPDF==1.22.3
 sqlalchemy
