@@ -114,10 +114,10 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                 st.success(fake_output)
                 generate_pdf(fake_output)
 
-with open("summary.pdf", "rb") as f:
-    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    download_link = f'<a href="data:application/octet-stream;base64,{base64_pdf}" download="summary.pdf">📄 Download This Summary as PDF</a>'
-    st.markdown(download_link, unsafe_allow_html=True)
+                with open("summary.pdf", "rb") as f:
+                base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                download_link = f'<a href="data:application/octet-stream;base64,{base64_pdf}" download="summary.pdf">📄 Download This Summary as PDF</a>'
+                st.markdown(download_link, unsafe_allow_html=True)
 
                 save_upload(st.session_state.user_email, uploaded_file.name, fake_output)
 
