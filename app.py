@@ -1,74 +1,106 @@
 import streamlit as st
 import fitz  # PyMuPDF
+from db import init_db, register_user, login_user, save_upload, get_user_history
 
-# Page config
-st.set_page_config(page_title="LegalEase - AI Legal Doc Explainer", page_icon="📜", layout="centered")
+# --- INIT DB ---
+init_db()
 
-# Header section
-st.markdown("""
-    <div style='text-align: center; padding-bottom: 1rem;'>
-        <h1 style='font-size: 2.8rem;'>📜 LegalEase</h1>
-        <p style='font-size: 1.1rem; color: gray;'>Your smart AI assistant for simplifying legal documents</p>
-    </div>
-""", unsafe_allow_html=True)
+# --- CONFIG ---
+st.set_page_config(page_title="LegalEase 2.0", layout="centered", page_icon="📜")
 
-# Instruction box
-with st.expander("📌 How it works (click to expand)", expanded=True):
-    st.markdown("""
-    - Upload a legal PDF like a **rental agreement**, **job contract**, or **NDA**.
-    - The app will "analyze" and give you a simple English explanation.
-    - If you're using the free version, it shows fake GPT-style outputs.
-    """)
+# --- SESSION STATE ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
 
-# File uploader
-st.markdown("### 📤 Upload Your Legal PDF")
-uploaded_file = st.file_uploader("Supported formats: PDF", type=["pdf"])
+# --- UI HEADER ---
+st.markdown("<h1 style='text-align: center;'>📜 LegalEase 2.0</h1>", unsafe_allow_html=True)
+st.caption("Your personal AI legal document explainer — now with login and history.")
 
-# Text extraction + fake GPT logic
-if uploaded_file:
-    with st.spinner("📚 Reading your document..."):
-        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-        full_text = ""
-        for page in doc:
-            full_text += page.get_text()
+# --- AUTH ---
+def login_section():
+    st.subheader("🔐 Login to Your Account")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        user = login_user(email, password)
+        if user:
+            st.session_state.logged_in = True
+            st.session_state.user_email = email
+            st.success(f"Welcome back, {email}!")
+        else:
+            st.error("Invalid email or password.")
 
-    st.success("✅ PDF uploaded and text extracted!")
-    st.markdown("### 🧾 Extracted Text")
-    st.text_area("Raw Legal Content", full_text, height=250)
+def signup_section():
+    st.subheader("📝 Create an Account")
+    email = st.text_input("New Email")
+    password = st.text_input("New Password", type="password")
+    if st.button("Sign Up"):
+        if register_user(email, password):
+            st.success("Account created! You can now login.")
+        else:
+            st.error("User already exists.")
 
-    if st.button("🧠 Simplify This"):
-        with st.spinner("Thinking like a legal assistant..."):
-            filename = uploaded_file.name.lower()
-            if "rental" in filename:
-                fake_output = """
-- This is a rental agreement between a landlord and tenant.
-- Rent is ₹18,000/month with ₹36,000 as deposit.
-- The agreement lasts for 11 months.
-- Subletting is not allowed.
-- Either party must give 1-month notice to terminate.
-                """
-            elif "nda" in filename:
-                fake_output = """
-- This NDA is between TechNova and Kiran.
-- Kiran agrees to keep company info confidential.
-- It covers client info, designs, strategies, and data.
-- The NDA lasts 3 years, even after the project ends.
-- Breaking it can lead to legal action.
-                """
-            elif "employment" in filename:
-                fake_output = """
-- This is an offer letter for Priya as a Senior Software Engineer.
-- Salary: ₹12,00,000/year.
-- 6-month probation with 15-day notice period.
-- Full-time, 40+ hours/week, remote or hybrid.
-- Cannot join competitor after leaving for 1 year.
-                """
-            else:
-                fake_output = "Sorry, this type of document isn’t recognized. Try naming your PDF as `rental`, `nda`, or `employment`."
+# --- MAIN APP ---
+def app_main():
+    st.sidebar.title("📚 Navigation")
+    choice = st.sidebar.radio("Go to", ["Upload & Simplify", "My History", "Logout"])
 
-        st.markdown("### ✅ Simplified Summary")
-        st.success(fake_output.strip())
+    if choice == "Upload & Simplify":
+        st.subheader("📤 Upload Your Legal Document (PDF)")
+        uploaded_file = st.file_uploader("Select a legal PDF", type=["pdf"])
 
-# Footer
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: gray;'>© 2025 LegalEase by [Your Name]. For educational use only.</p>", unsafe_allow_html=True)
+        if uploaded_file:
+            with st.spinner("Reading PDF..."):
+                doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+                full_text = ""
+                for page in doc:
+                    full_text += page.get_text()
+
+            st.success("✅ PDF uploaded and text extracted.")
+            st.text_area("📄 Extracted Text", full_text, height=300)
+
+            if st.button("🧠 Simplify Document"):
+                # Fake GPT output based on filename
+                name = uploaded_file.name.lower()
+                if "rental" in name:
+                    summary = "- This is a rental agreement...\n- Monthly rent: ₹18,000\n- Duration: 11 months\n- 1-month notice required."
+                elif "nda" in name:
+                    summary = "- This NDA restricts sharing confidential info\n- Valid for 3 years\n- Legal action if broken."
+                elif "employment" in name:
+                    summary = "- This is an employment offer\n- ₹12 LPA salary\n- 6-month probation\n- No competing jobs for 1 year."
+                else:
+                    summary = "- Document read but not recognized. Please rename file to include 'rental', 'nda', or 'employment'."
+
+                st.subheader("✅ Simplified Summary")
+                st.success(summary)
+                save_upload(st.session_state.user_email, uploaded_file.name, summary)
+
+    elif choice == "My History":
+        st.subheader("📂 Your Uploaded History")
+        history = get_user_history(st.session_state.user_email)
+        if not history:
+            st.info("No uploads yet.")
+        else:
+            for file, summary, time in history:
+                with st.expander(f"📄 {file} | 🕒 {time}"):
+                    st.text(summary)
+
+    elif choice == "Logout":
+        st.session_state.logged_in = False
+        st.session_state.user_email = ""
+        st.success("Logged out. Refresh to login again.")
+
+# --- ROUTING ---
+if not st.session_state.logged_in:
+    tab = st.tabs(["Login", "Sign Up"])
+    with tab[0]:
+        login_section()
+    with tab[1]:
+        signup_section()
+else:
+    app_main()
+
+# --- FOOTER ---
+st.markdown("<hr><p style='text-align: center; color: gray;'>© 2025 LegalEase. Built with ❤️ in Streamlit.</p>", unsafe_allow_html=True)
