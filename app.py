@@ -1,9 +1,9 @@
 import streamlit as st
+from openai import OpenAI
 import fitz  # PyMuPDF
-import openai
 
-# 🔑 Replace this with your real OpenAI API key
-openai.api_key = "sk-REPLACE-WITH-YOUR-OPENAI-KEY"
+# 🔑 Replace with your real OpenAI API key
+client = OpenAI(api_key="sk-REPLACE-WITH-YOUR-OPENAI-KEY")
 
 st.set_page_config(page_title="LegalEase - Simplify Legal Documents", layout="centered")
 
@@ -30,15 +30,17 @@ if uploaded_file:
                 "Read this and explain every important point like you would to a regular person:\n\n"
                 + full_text
             )
+
             try:
-                response = openai.ChatCompletion.create(
+                response = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.6,
                     max_tokens=1500
                 )
-                result = response["choices"][0]["message"]["content"]
+                result = response.choices[0].message.content
                 st.subheader("✅ Simplified Explanation:")
                 st.text_area("Easy-to-Understand Legal Summary", result, height=300)
+
             except Exception as e:
                 st.error(f"Error: {e}")
