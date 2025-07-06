@@ -90,10 +90,10 @@ def app_main():
 
                 if st.session_state.mode == "Use Your Own OpenAI API Key":
                     if st.session_state.api_key:
-                        import openai
-                        openai.api_key = st.session_state.api_key
+                        from openai import OpenAI
+                        client = OpenAI(api_key=st.session_state.api_key)
                         with st.spinner("Simplifying with AI..."):
-                            response = openai.ChatCompletion.create(
+                            response = client.chat.completions.create(
                                 model="gpt-3.5-turbo",
                                 messages=[
                                     {"role": "system", "content": "You're a legal document simplifier."},
