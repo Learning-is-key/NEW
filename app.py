@@ -1,5 +1,6 @@
 import streamlit as st
 import fitz  # PyMuPDF
+import openai
 from db import init_db, register_user, login_user, save_upload, get_user_history
 
 # --- INIT DB ---
@@ -32,7 +33,7 @@ def login_section():
         if user:
             st.session_state.logged_in = True
             st.session_state.user_email = email
-            choose_mode()
+            st.success(f"Welcome back, {email}!")
         else:
             st.error("Invalid email or password.")
 
@@ -48,9 +49,11 @@ def signup_section():
 
 def choose_mode():
     st.subheader("Choose how you'd like to use LegalEase:")
-    st.session_state.mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
-    if st.session_state.mode == "Use Your Own OpenAI API Key":
-        st.session_state.api_key = st.text_input("Paste your OpenAI API Key", type="password")
+    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
+    st.session_state.mode = mode
+    if mode == "Use Your Own OpenAI API Key":
+        api_key = st.text_input("Paste your OpenAI API Key", type="password")
+        st.session_state.api_key = api_key
 
 # --- MAIN APP ---
 def app_main():
@@ -76,17 +79,20 @@ def app_main():
 
                 if st.session_state.mode == "Use Your Own OpenAI API Key":
                     if st.session_state.api_key:
-                        import openai
-                        openai.api_key = st.session_state.api_key
-                        with st.spinner("Simplifying with AI..."):
-                            response = openai.ChatCompletion.create(
-                                model="gpt-3.5-turbo",
-                                messages=[
-                                    {"role": "system", "content": "You're a legal document simplifier."},
-                                    {"role": "user", "content": full_text}
-                                ]
-                            )
-                            simplified = response.choices[0].message.content
+                        try:
+                            openai.api_key = st.session_state.api_key
+                            with st.spinner("Simplifying with AI..."):
+                                response = openai.ChatCompletion.create(
+                                    model="gpt-3.5-turbo",
+                                    messages=[
+                                        {"role": "system", "content": "You're a legal document simplifier."},
+                                        {"role": "user", "content": full_text}
+                                    ]
+                                )
+                                simplified = response.choices[0].message.content
+                        except Exception as e:
+                            st.error(f"OpenAI API error: {str(e)}")
+                            return
                     else:
                         st.warning("Please enter your API key to use real AI mode.")
                         return
@@ -125,7 +131,7 @@ In short: Kiran must not reveal or misuse any business secrets he gets from Tech
 - Any inventions or code she builds belong to the company.
 - She gets 20 paid leaves + public holidays.
 
-In short: This contract outlines Priya’s job, salary, rules during and after employment, and what happens if she quits or is fired"""
+In short: This contract outlines Priya’s job, salary, rules during and after employment, and what happens if she quits or is fired."""
                     else:
                         simplified = "Sample summary: Could not identify document type."
 
