@@ -72,13 +72,38 @@ def choose_mode():
 # --- HUGGING FACE API WRAPPER ---
 @st.cache_data
 def query_huggingface_api(prompt):
-    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
-    headers = {"Authorization": f"Bearer {hf_token}"}  # Replace with your real Hugging Face token
+    import requests
 
-    response = requests.post(API_URL, headers=headers, json={
-        "inputs": prompt,
-        "parameters": {"temperature": 0.7, "max_new_tokens": 512}
-    })
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+    headers = {"Authorization": f"Bearer {hf_token}"}  # Ensure hf_token is defined at the top of your script
+
+    try:
+        response = requests.post(API_URL, headers=headers, json={
+            "inputs": prompt,
+            "parameters": {"temperature": 0.7, "max_new_tokens": 512}
+        })
+
+        # Optional Debug Logging
+        print("Status Code:", response.status_code)
+        print("Raw Response:", response.text)
+
+        # Try parsing JSON safely
+        output = response.json()
+
+        # Check if output is as expected
+        if isinstance(output, list) and "generated_text" in output[0]:
+            return output[0]["generated_text"]
+        elif "error" in output:
+            return f"⚠️ HuggingFace API Error: {output['error']}"
+        else:
+            return "⚠️ Unexpected API format. Try again later."
+
+    except requests.exceptions.RequestException as req_err:
+        return f"❌ Network error: {req_err}"
+
+    except ValueError as json_err:
+        return f"❌ Response not JSON: {json_err}\nRaw response: {response.text}"
+
 
     output = response.json()
     if isinstance(output, list) and "generated_text" in output[0]:
