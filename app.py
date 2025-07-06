@@ -13,10 +13,14 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
+if "mode" not in st.session_state:
+    st.session_state.mode = ""
+if "api_key" not in st.session_state:
+    st.session_state.api_key = ""
 
 # --- UI HEADER ---
 st.markdown("<h1 style='text-align: center;'>📜 LegalEase 2.0</h1>", unsafe_allow_html=True)
-st.caption("Your personal AI legal document explainer — now with login and history.")
+st.caption("Your personal AI legal document explainer — with login, history, and dual modes.")
 
 # --- AUTH ---
 def login_section():
@@ -28,7 +32,7 @@ def login_section():
         if user:
             st.session_state.logged_in = True
             st.session_state.user_email = email
-            st.success(f"Welcome back, {email}!")
+            choose_mode()
         else:
             st.error("Invalid email or password.")
 
@@ -41,6 +45,12 @@ def signup_section():
             st.success("Account created! You can now login.")
         else:
             st.error("User already exists.")
+
+def choose_mode():
+    st.subheader("Choose how you'd like to use LegalEase:")
+    st.session_state.mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
+    if st.session_state.mode == "Use Your Own OpenAI API Key":
+        st.session_state.api_key = st.text_input("Paste your OpenAI API Key", type="password")
 
 # --- MAIN APP ---
 def app_main():
@@ -64,9 +74,25 @@ def app_main():
             if st.button("🧠 Simplify Document"):
                 name = uploaded_file.name.lower()
 
-                if "rental" in name:
-                    fake_output = """
-This is a rental agreement made between Mr. Rakesh Kumar (the property owner) and Mr. Anil Reddy (the person renting).
+                if st.session_state.mode == "Use Your Own OpenAI API Key":
+                    if st.session_state.api_key:
+                        import openai
+                        openai.api_key = st.session_state.api_key
+                        with st.spinner("Simplifying with AI..."):
+                            response = openai.ChatCompletion.create(
+                                model="gpt-3.5-turbo",
+                                messages=[
+                                    {"role": "system", "content": "You're a legal document simplifier."},
+                                    {"role": "user", "content": full_text}
+                                ]
+                            )
+                            simplified = response.choices[0].message.content
+                    else:
+                        st.warning("Please enter your API key to use real AI mode.")
+                        return
+                else:
+                    if "rental" in name:
+                        simplified = """This is a rental agreement made between Mr. Rakesh Kumar (the property owner) and Mr. Anil Reddy (the person renting).
 
 - The house is in Jubilee Hills, Hyderabad.
 - Rent is ₹18,000/month, paid by the 5th.
@@ -75,12 +101,9 @@ This is a rental agreement made between Mr. Rakesh Kumar (the property owner) an
 - Either side can cancel the agreement with 1 month’s written notice.
 - Anil can't sub-rent the house to anyone else unless Rakesh agrees.
 
-In short: this document explains the rules of staying in the rented house, money terms, and how both sides can exit the deal.
-                    """
-
-                elif "nda" in name:
-                    fake_output = """
-This Non-Disclosure Agreement (NDA) is between TechNova Pvt. Ltd. and Mr. Kiran Rao.
+In short: this document explains the rules of staying in the rented house, money terms, and how both sides can exit the deal."""
+                    elif "nda" in name:
+                        simplified = """This Non-Disclosure Agreement (NDA) is between TechNova Pvt. Ltd. and Mr. Kiran Rao.
 
 - Kiran will receive sensitive business information from TechNova.
 - He agrees to keep this confidential and not use it for anything other than their business discussions.
@@ -89,12 +112,9 @@ This Non-Disclosure Agreement (NDA) is between TechNova Pvt. Ltd. and Mr. Kiran 
 - Exceptions: if info is public, received legally from others, or required by law.
 - If he breaks the agreement, TechNova can take legal action, including asking the court to stop him immediately.
 
-In short: Kiran must not reveal or misuse any business secrets he gets from TechNova during their potential partnership.
-                    """
-
-                elif "employment" in name:
-                    fake_output = """
-This is an official job contract between GlobalTech Ltd. and Ms. Priya Sharma.
+In short: Kiran must not reveal or misuse any business secrets he gets from TechNova during their potential partnership."""
+                    elif "employment" in name:
+                        simplified = """This is an official job contract between GlobalTech Ltd. and Ms. Priya Sharma.
 
 - Priya will join as a Senior Software Engineer from August 1, 2025.
 - She will earn Rs. 12,00,000/year, including bonuses and allowances.
@@ -105,14 +125,13 @@ This is an official job contract between GlobalTech Ltd. and Ms. Priya Sharma.
 - Any inventions or code she builds belong to the company.
 - She gets 20 paid leaves + public holidays.
 
-In short: This contract outlines Priya’s job, salary, rules during and after employment, and what happens if she quits or is fired.
-                    """
-                else:
-                    fake_output = "This appears to be a legal document. However, I couldn’t auto-identify its type. Please consult a legal expert for proper clarification."
+In short: This contract outlines Priya’s job, salary, rules during and after employment, and what happens if she quits or is fired"""
+                    else:
+                        simplified = "Sample summary: Could not identify document type."
 
                 st.subheader("✅ Simplified Summary")
-                st.success(fake_output)
-                save_upload(st.session_state.user_email, uploaded_file.name, fake_output)
+                st.success(simplified)
+                save_upload(st.session_state.user_email, uploaded_file.name, simplified)
 
     elif choice == "My History":
         st.subheader("📂 Your Uploaded History")
@@ -127,6 +146,8 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
     elif choice == "Logout":
         st.session_state.logged_in = False
         st.session_state.user_email = ""
+        st.session_state.mode = ""
+        st.session_state.api_key = ""
         st.success("Logged out. Refresh to login again.")
 
 # --- ROUTING ---
@@ -137,7 +158,10 @@ if not st.session_state.logged_in:
     with tab[1]:
         signup_section()
 else:
-    app_main()
+    if not st.session_state.mode:
+        choose_mode()
+    else:
+        app_main()
 
 # --- FOOTER ---
 st.markdown("<hr><p style='text-align: center; color: gray;'>© 2025 LegalEase. Built with ❤️ in Streamlit.</p>", unsafe_allow_html=True)
