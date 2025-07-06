@@ -1,9 +1,11 @@
+
 import streamlit as st
 import fitz  # PyMuPDF
 import requests
 from db import init_db, register_user, login_user, save_upload, get_user_history
-hf_token = st.secrets["HF_TOKEN"]
 
+# Load Hugging Face token
+hf_token = st.secrets["HF_TOKEN"]
 
 # --- INIT DB ---
 init_db()
@@ -71,30 +73,7 @@ def choose_mode():
 
 # --- HUGGING FACE API WRAPPER ---
 @st.cache_data
-
-        # Check if output is as expected
-        if isinstance(output, list) and "generated_text" in output[0]:
-            return output[0]["generated_text"]
-        elif "error" in output:
-            return f"⚠️ HuggingFace API Error: {output['error']}"
-        else:
-            return "⚠️ Unexpected API format. Try again later."
-
-    except requests.exceptions.RequestException as req_err:
-        return f"❌ Network error: {req_err}"
-
-    except ValueError as json_err:
-        return f"❌ Response not JSON: {json_err}\nRaw response: {response.text}"
-
-
-    output = response.json()
-    if isinstance(output, list) and "generated_text" in output[0]:
-        return output[0]["generated_text"]
-    else:
-        return "Error from Hugging Face API or model is loading. Please retry later."
-
-# --- MAIN APP ---
-def app_main():def query_huggingface_api(prompt):
+def query_huggingface_api(prompt):
     API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
     headers = {"Authorization": f"Bearer {hf_token}"}
 
@@ -117,6 +96,8 @@ def app_main():def query_huggingface_api(prompt):
     except ValueError:
         return f"❌ Failed to decode JSON. Raw: {response.text}"
 
+# --- MAIN APP ---
+def app_main():
     st.sidebar.title("📚 Navigation")
     choice = st.sidebar.radio("Go to", ["Upload & Simplify", "My History", "Logout"])
 
