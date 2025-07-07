@@ -1,10 +1,6 @@
 import streamlit as st
 import fitz  # PyMuPDF
-import requests
 from db import init_db, register_user, login_user, save_upload, get_user_history
-
-# Load Hugging Face token
-hf_token = st.secrets["HF_TOKEN"]
 
 # --- INIT DB ---
 init_db()
@@ -55,7 +51,7 @@ def signup_section():
 # --- MODE SELECTOR ---
 def choose_mode():
     st.subheader("Choose how you'd like to use LegalEase:")
-    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key", "Use Open-Source AI via Hugging Face"])
+    mode = st.radio("Select Mode", ["Demo Mode (no real AI)", "Use Your Own OpenAI API Key"])
 
     if mode == "Use Your Own OpenAI API Key":
         api_key = st.text_input("Paste your OpenAI API Key", type="password")
@@ -69,34 +65,6 @@ def choose_mode():
             st.session_state.mode = mode
             st.session_state.api_key = api_key
             st.session_state.mode_chosen = True
-
-# --- HUGGING FACE API WRAPPER ---
-@st.cache_data
-@st.cache_data
-def query_huggingface_api(prompt):
-    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-    headers = {"Authorization": f"Bearer {hf_token}"}
-
-    try:
-        response = requests.post(API_URL, headers=headers, json={
-            "inputs": prompt,
-            "parameters": {"max_new_tokens": 200},
-            "options": {"wait_for_model": True}
-        })
-
-        if response.status_code != 200:
-            return f"❌ API Error {response.status_code}: {response.text}"
-
-        output = response.json()
-
-        if isinstance(output, list) and len(output) > 0:
-            return output[0].get("generated_text", str(output[0]))
-        else:
-            return f"⚠️ Unexpected output: {output}"
-
-    except Exception as e:
-        return f"❌ Exception: {str(e)}"
-
 
 # --- MAIN APP ---
 def app_main():
@@ -122,30 +90,20 @@ def app_main():
 
                 if st.session_state.mode == "Use Your Own OpenAI API Key":
                     try:
-                        from openai import OpenAI
-                        from openai.error import RateLimitError
-                        client = OpenAI(api_key=st.session_state.api_key)
+                        import openai
+                        openai.api_key = st.session_state.api_key
                         with st.spinner("Simplifying with OpenAI..."):
-                            response = client.chat.completions.create(
+                            response = openai.ChatCompletion.create(
                                 model="gpt-3.5-turbo",
                                 messages=[
                                     {"role": "system", "content": "You're a legal document simplifier."},
                                     {"role": "user", "content": full_text}
                                 ]
                             )
-                            simplified = response.choices[0].message.content
+                            simplified = response['choices'][0]['message']['content']
                     except Exception as e:
                         st.error(f"OpenAI error: {str(e)}")
                         return
-
-                elif st.session_state.mode == "Use Open-Source AI via Hugging Face":
-                    prompt = f"""You are a legal assistant. Simplify the following legal document in plain English:
-
-{full_text}
-
-Simplified version:"""
-                    with st.spinner("Simplifying using Hugging Face Inference API..."):
-                        simplified = query_huggingface_api(prompt)
 
                 else:
                     if "rental" in name:
@@ -156,9 +114,7 @@ Simplified version:"""
 - Anil pays a ₹36,000 security deposit.
 - The rental period is 11 months: from August 1, 2025, to June 30, 2026.
 - Either side can cancel the agreement with 1 month’s written notice.
-- Anil can't sub-rent the house to anyone else unless Rakesh agrees.
-
-In short: this document explains the rules of staying in the rented house, money terms, and how both sides can exit the deal."""
+- Anil can't sub-rent the house to anyone else unless Rakesh agrees."""
                     elif "nda" in name:
                         simplified = """
 This Non-Disclosure Agreement (NDA) is between TechNova Pvt. Ltd. and Mr. Kiran Rao.
@@ -168,10 +124,7 @@ This Non-Disclosure Agreement (NDA) is between TechNova Pvt. Ltd. and Mr. Kiran 
 - This includes technical data, strategies, client info, designs, etc.
 - He cannot share it, even after the project ends, for 3 years.
 - Exceptions: if info is public, received legally from others, or required by law.
-- If he breaks the agreement, TechNova can take legal action, including asking the court to stop him immediately.
-
-In short: Kiran must not reveal or misuse any business secrets he gets from TechNova during their potential partnership.
-"""
+- If he breaks the agreement, TechNova can take legal action, including asking the court to stop him immediately."""
                     elif "employment" in name:
                         simplified = """
 This is an official job contract between GlobalTech Ltd. and Ms. Priya Sharma.
@@ -183,10 +136,7 @@ This is an official job contract between GlobalTech Ltd. and Ms. Priya Sharma.
 - After that, it becomes 60-day notice.
 - She must not share company secrets or join rival companies for 1 year after leaving.
 - Any inventions or code she builds belong to the company.
-- She gets 20 paid leaves + public holidays.
-
-In short: This contract outlines Priya’s job, salary, rules during and after employment, and what happens if she quits or is fired.
-"""
+- She gets 20 paid leaves + public holidays."""
                     else:
                         simplified = "Sample summary: Could not identify document type."
 
