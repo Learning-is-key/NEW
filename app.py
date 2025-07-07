@@ -1,6 +1,7 @@
 import streamlit as st
 import fitz  # PyMuPDF
 from db import init_db, register_user, login_user, save_upload, get_user_history
+from openai import OpenAI
 
 # --- INIT DB ---
 init_db()
@@ -90,17 +91,16 @@ def app_main():
 
                 if st.session_state.mode == "Use Your Own OpenAI API Key":
                     try:
-                        import openai
-                        openai.api_key = st.session_state.api_key
+                        client = OpenAI(api_key=st.session_state.api_key)
                         with st.spinner("Simplifying with OpenAI..."):
-                            response = openai.ChatCompletion.create(
+                            response = client.chat.completions.create(
                                 model="gpt-3.5-turbo",
                                 messages=[
                                     {"role": "system", "content": "You're a legal document simplifier."},
                                     {"role": "user", "content": full_text}
                                 ]
                             )
-                            simplified = response['choices'][0]['message']['content']
+                            simplified = response.choices[0].message.content
                     except Exception as e:
                         st.error(f"OpenAI error: {str(e)}")
                         return
