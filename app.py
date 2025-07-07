@@ -73,41 +73,31 @@ def choose_mode():
 
 # --- HUGGING FACE API WRAPPER ---
 @st.cache_data
+@st.cache_data
 def query_huggingface_api(prompt):
     API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
     headers = {"Authorization": f"Bearer {hf_token}"}
 
     try:
-        response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+        response = requests.post(API_URL, headers=headers, json={
+            "inputs": prompt,
+            "parameters": {"max_new_tokens": 200},
+            "options": {"wait_for_model": True}
+        })
 
         if response.status_code != 200:
             return f"❌ API Error {response.status_code}: {response.text}"
 
         output = response.json()
 
-        # Check various possible outputs depending on model
-        if isinstance(output, list):
-            if "generated_text" in output[0]:
-                return output[0]["generated_text"]
-            elif "summary_text" in output[0]:
-                return output[0]["summary_text"]
-            elif "translation_text" in output[0]:
-                return output[0]["translation_text"]
-            elif "output" in output[0]:
-                return output[0]["output"]
-            else:
-                return f"⚠️ Unexpected output format: {output}"
+        if isinstance(output, list) and len(output) > 0:
+            return output[0].get("generated_text", str(output[0]))
         else:
-            return "⚠️ Response not in expected list format."
-
-    except requests.exceptions.RequestException as req_err:
-        return f"❌ Network error: {req_err}"
-
-    except ValueError as json_err:
-        return f"❌ JSON decode error: {json_err}\nRaw response: {response.text}"
+            return f"⚠️ Unexpected output: {output}"
 
     except Exception as e:
-        return f"❌ Unexpected error: {str(e)}"
+        return f"❌ Exception: {str(e)}"
+
 
 # --- MAIN APP ---
 def app_main():
