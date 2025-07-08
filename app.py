@@ -74,32 +74,49 @@ def signup_section():
             st.error("User already exists.")
 
 # --- MAIN APP ---
-if st.button("🧠 Simplify Document"):
-    with st.spinner("Processing with AI..."):
-        try:
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You're a legal document simplifier."},
-                    {"role": "user", "content": full_text}
-                ]
-            )
-            simplified = response.choices[0].message.content
-            save_upload(st.session_state.user_email, uploaded_file.name, simplified)
+def app_main():
+    with st.sidebar:
+        st.markdown("## ⚖️ LegalLite")
+        choice = st.radio("Navigate", ["📤 Upload", "📂 History", "🚪 Logout"])
 
-            st.subheader("✅ Simplified Summary")
-            st.markdown(f"<div class='summary-box'>{simplified}</div>", unsafe_allow_html=True)
+    if choice == "📤 Upload":
+        st.subheader("📤 Upload Legal PDF")
+        uploaded_file = st.file_uploader("Choose a legal document", type=["pdf"])
 
-            # 📥 Download button for summary
-            st.download_button(
-                label="📥 Download Summary as TXT",
-                data=simplified,
-                file_name=f"{uploaded_file.name}_summary.txt",
-                mime="text/plain"
-            )
+        if uploaded_file:
+            st.info(f"Selected file: `{uploaded_file.name}`")
+            with st.spinner("📖 Extracting text..."):
+                doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+                full_text = "".join([page.get_text() for page in doc])
+            st.success("✅ PDF text extracted.")
+            st.text_area("📄 Extracted Text", full_text, height=300)
 
-        except Exception as e:
-            st.error(f"OpenAI error: {str(e)}")
+            if st.button("🧠 Simplify Document"):
+                with st.spinner("Processing with AI..."):
+                    try:
+                        response = client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "You're a legal document simplifier."},
+                                {"role": "user", "content": full_text}
+                            ]
+                        )
+                        simplified = response.choices[0].message.content
+                        save_upload(st.session_state.user_email, uploaded_file.name, simplified)
+
+                        st.subheader("✅ Simplified Summary")
+                        with st.container():
+                            st.markdown(f"<div class='summary-box'>{simplified}</div>", unsafe_allow_html=True)
+
+                            st.markdown("---")
+                            st.download_button(
+                                label="📥 Download Summary as TXT",
+                                data=simplified,
+                                file_name=f"{uploaded_file.name}_summary.txt",
+                                mime="text/plain"
+                            )
+                    except Exception as e:
+                        st.error(f"OpenAI error: {str(e)}")
 
     elif choice == "📂 History":
         st.subheader("📂 Your Upload History")
