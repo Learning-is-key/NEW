@@ -3,14 +3,14 @@ import fitz  # PyMuPDF
 from db import init_db, register_user, login_user, save_upload, get_user_history
 from openai import OpenAI
 
-# 🔐 Your OpenAI API Key
+# 🔐 API Key
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --- INIT DB ---
 init_db()
 
-# --- CONFIG ---
-st.set_page_config(page_title="LegalEase 2.0", layout="centered", page_icon="📜")
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="LegalLite", layout="centered", page_icon="⚖️")
 
 # --- SESSION STATE ---
 if "logged_in" not in st.session_state:
@@ -18,28 +18,36 @@ if "logged_in" not in st.session_state:
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 
-# --- CUSTOM CSS ---
+# --- GLOBAL STYLING ---
 st.markdown("""
     <style>
         .block-container {
             padding-top: 2rem;
         }
+        .stTextInput>div>input, .stTextArea>div>textarea {
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
         .stButton>button {
-            border-radius: 8px;
             background-color: #29465B;
             color: white;
             font-weight: 600;
-        }
-        .stTextInput>div>input, .stTextArea>div>textarea {
             border-radius: 6px;
+            padding: 0.5em 1.5em;
+        }
+        .summary-box {
+            background-color: #f7f9fb;
+            border: 1px solid #e1e1e1;
+            border-radius: 8px;
+            padding: 1rem;
         }
         footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
 # --- HEADER ---
-st.markdown("<h1 style='text-align: center;'>📜 LegalEase 2.0</h1>", unsafe_allow_html=True)
-st.caption("Your personal AI legal document explainer — with login, upload history, and document simplification.")
+st.markdown("<h1 style='text-align: center;'>⚖️ LegalLite</h1>", unsafe_allow_html=True)
+st.caption("Your AI legal document explainer — with login, upload history, and document simplification.")
 
 # --- AUTH SECTIONS ---
 def login_section():
@@ -51,9 +59,9 @@ def login_section():
         if user:
             st.session_state.logged_in = True
             st.session_state.user_email = email
-            st.success(f"✅ Welcome back, {email}!")
+            st.success(f"Welcome back, {email}!")
         else:
-            st.error("❌ Invalid email or password.")
+            st.error("Invalid email or password.")
 
 def signup_section():
     st.subheader("📝 Sign Up")
@@ -63,28 +71,27 @@ def signup_section():
         if register_user(email, password):
             st.success("🎉 Account created! You can now log in.")
         else:
-            st.error("⚠️ User already exists.")
+            st.error("User already exists.")
 
-# --- MAIN APP SECTION ---
+# --- MAIN APP ---
 def app_main():
     with st.sidebar:
-        st.image("https://img.icons8.com/ios/100/law.png", width=60)
-        st.title("📚 LegalEase")
-        choice = st.radio("Navigate", ["📤 Upload & Simplify", "📂 My History", "🚪 Logout"])
+        st.markdown("## ⚖️ LegalLite")
+        choice = st.radio("Navigate", ["📤 Upload", "📂 History", "🚪 Logout"])
 
-    if choice == "📤 Upload & Simplify":
-        st.subheader("Upload Your Legal PDF")
-        uploaded_file = st.file_uploader("Choose a PDF", type=["pdf"])
-
+    if choice == "📤 Upload":
+        st.subheader("📤 Upload Legal PDF")
+        uploaded_file = st.file_uploader("Choose a legal document", type=["pdf"])
         if uploaded_file:
-            with st.spinner("📖 Reading your PDF..."):
+            st.info(f"Selected file: `{uploaded_file.name}`")
+            with st.spinner("📖 Extracting text..."):
                 doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
                 full_text = "".join([page.get_text() for page in doc])
-            st.success("✅ PDF uploaded and text extracted.")
+            st.success("✅ PDF text extracted.")
             st.text_area("📄 Extracted Text", full_text, height=300)
 
             if st.button("🧠 Simplify Document"):
-                with st.spinner("Using AI to simplify..."):
+                with st.spinner("Processing with AI..."):
                     try:
                         response = client.chat.completions.create(
                             model="gpt-3.5-turbo",
@@ -94,37 +101,36 @@ def app_main():
                             ]
                         )
                         simplified = response.choices[0].message.content
-                        st.subheader("✅ Simplified Summary")
-                        st.success(simplified)
                         save_upload(st.session_state.user_email, uploaded_file.name, simplified)
+                        st.subheader("✅ Simplified Summary")
+                        st.markdown(f"<div class='summary-box'>{simplified}</div>", unsafe_allow_html=True)
                     except Exception as e:
-                        st.error(f"OpenAI Error: {str(e)}")
+                        st.error(f"OpenAI error: {str(e)}")
 
-    elif choice == "📂 My History":
-        st.subheader("Your Uploaded Files")
+    elif choice == "📂 History":
+        st.subheader("📂 Your Upload History")
         history = get_user_history(st.session_state.user_email)
         if not history:
-            st.info("ℹ️ No uploads yet.")
+            st.info("No previous uploads found.")
         else:
             for file, summary, time in history:
                 with st.expander(f"📄 {file} | 🕒 {time}"):
-                    st.text(summary)
+                    st.markdown(f"<div class='summary-box'>{summary}</div>", unsafe_allow_html=True)
 
     elif choice == "🚪 Logout":
         st.session_state.logged_in = False
         st.session_state.user_email = ""
-        st.success("✅ You have been logged out. Refresh to log in again.")
+        st.success("✅ Logged out. Refresh to login again.")
 
 # --- ROUTING ---
 if not st.session_state.logged_in:
-    login_tab, signup_tab = st.tabs(["🔐 Login", "📝 Sign Up"])
-    with login_tab:
+    tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
+    with tab1:
         login_section()
-    with signup_tab:
+    with tab2:
         signup_section()
 else:
     app_main()
 
 # --- FOOTER ---
-st.markdown("<hr><p style='text-align: center; color: gray;'>© 2025 LegalEase. Built with ❤️ using Streamlit.</p>", unsafe_allow_html=True)
-
+st.markdown("<hr><p style='text-align: center; color: gray;'>© 2025 LegalLite. Built with ❤️ using Streamlit.</p>", unsafe_allow_html=True)
