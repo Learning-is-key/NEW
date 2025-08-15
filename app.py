@@ -225,7 +225,21 @@ def app_main():
             else:
                 # Demo mode logic (unchanged)
                 if "rental" in doc_name:
-                    simplified = """This is a rental agreement..."""
+                    simplified = """"
+
+                This is an official job contract between GlobalTech Ltd. and Ms. Priya Sharma.
+
+- Priya will join as a Senior Software Engineer from August 1, 2025.
+- She will earn Rs. 12,00,000/year, including bonuses and allowances.
+- She must work 40+ hours/week, either from office or remotely.
+- First 6 months = probation, 15-day notice for quitting or firing.
+- After that, it becomes 60-day notice.
+- She must not share company secrets or join rival companies for 1 year after leaving.
+- Any inventions or code she builds belong to the company.
+- She gets 20 paid leaves + public holidays.
+
+In short: This contract outlines Priya’s job, salary, rules during and after employment, and what happens if she quits or is fired.
+                    """
                 elif "nda" in doc_name:
                     simplified = """This Non-Disclosure Agreement..."""
                 elif "employment" in doc_name:
