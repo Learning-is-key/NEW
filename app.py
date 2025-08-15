@@ -397,7 +397,7 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                             hf_result = query_hf_risk_analyzer(hf_prompt)
                             st.subheader("🧠 AI Risk Analysis Result (Hugging Face)")
                             st.markdown(
-                                        f"<div style='text-align: right; white-space: pre-wrap;'>{hf_result}</div>",
+                                        f"<div style='text-align: left; white-space: pre-wrap;'>{hf_result}</div>",
                                         unsafe_allow_html=True
                             )
                            
