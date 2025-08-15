@@ -374,7 +374,7 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                     st.success("✅ No risky terms detected based on keyword scan.")
 
                 # --- Step 2: Optional AI Analysis ---
-                 if st.button("🤖 Run AI Risk Analysis (Hugging Face)"):
+                if st.button("🤖 Run AI Risk Analysis (Hugging Face)"):
                         with st.spinner("Running Hugging Face risk analysis..."):
                             hf_prompt = f"""
                             Identify and list all clauses in the following legal document that could pose legal or financial risks to the signer. 
@@ -391,13 +391,13 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                             )
                            
                            # st.write(hf_result)
-                 if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
+                if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
                         if st.button("🤖 Run AI Risk Analysis"):
                             with st.spinner("Running AI risk analysis..."):
                                 ai_result = ai_risk_analysis(full_text, st.session_state.api_key)
                                 st.subheader("🧠 AI Risk Analysis Result")
                                 st.write(ai_result)
-                 elif st.session_state.mode != "Use Your Own OpenAI API Key":
+                elif st.session_state.mode != "Use Your Own OpenAI API Key":
                         st.info("ℹ️ For AI-powered risk analysis, use the 'Use Your Own OpenAI API Key' mode.")
 
             except Exception as e:
