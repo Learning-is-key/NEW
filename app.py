@@ -157,6 +157,37 @@ def signup_section():
             else:
                 st.error("User already exists.")  
 
+# --- RISKY TERMS FINDER ---
+def find_risky_terms(text):
+    risky_keywords = [
+        "penalty", "termination", "breach", "fine",
+        "automatic renewal", "binding arbitration",
+        "liquidated damages", "non-compete", "non-disclosure",
+        "late fee", "without notice", "waiver of rights",
+        "exclusive jurisdiction", "governing law", "intellectual property"
+    ]
+    found_terms = []
+    for keyword in risky_keywords:
+        if keyword.lower() in text.lower():
+            found_terms.append(keyword)
+    return list(set(found_terms))
+
+# --- AI RISK TERMS ---
+def ai_risk_analysis(text, api_key):
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a legal risk analysis assistant. Identify clauses in contracts that could pose legal or financial risks to the signer, explain why, and suggest ways to mitigate them."},
+                {"role": "user", "content": text}
+            ]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"❌ AI Analysis failed: {e}"
+
 # --- MAIN APP ---
 def app_main():
     if st.button("🔙 Back to Mode Selection"):
@@ -166,7 +197,7 @@ def app_main():
         return
 
     st.sidebar.title("📓 Navigation")
-    choice = st.sidebar.radio("Go to", ["👤 Profile", "📄 Upload & Simplify", "📂 My History", "❓ Help & Feedback"])
+    choice = st.sidebar.radio("Go to", [ "📄 Upload & Simplify","👤 Profile","🚨 Risky Terms Detector", "📂 My History", "❓ Help & Feedback"])
 
     if choice == "👤 Profile":
         st.subheader("👤 Your Profile")
@@ -308,6 +339,37 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
         - **Suggestions or bugs?** Drop a message at `support@legalease.com`.
         """)
         st.image("flowchart.png.png", caption="LegalLite App Flow", width=500)
+
+    if choice == "🚨 Risky Terms Detector":
+    st.subheader("🚨 Risky Terms Detector")
+    uploaded_file = st.file_uploader("Upload a legal PDF", type=["pdf"])
+
+     if uploaded_file:
+        try:
+            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+            full_text = "".join([page.get_text() for page in doc])
+
+            # Step 1 — Keyword Scan
+            risky = find_risky_terms(full_text)
+            if risky:
+                st.error("⚠️ Risky Terms Found:")
+                for term in risky:
+                    st.markdown(f"- **{term}**")
+            else:
+                st.success("✅ No risky terms detected based on keyword scan.")
+
+            # Step 2 — AI Analysis Option
+            if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
+                if st.button("🤖 Run AI Risk Analysis"):
+                    with st.spinner("Running AI risk analysis..."):
+                        ai_result = ai_risk_analysis(full_text, st.session_state.api_key)
+                        st.subheader("🧠 AI Risk Analysis Result")
+                        st.write(ai_result)
+            elif st.session_state.mode != "Use Your Own OpenAI API Key":
+                st.info("ℹ️ For AI-powered risk analysis, use the 'Use Your Own OpenAI API Key' mode.")
+
+         except Exception as e:
+            st.error(f"❌ Error reading PDF: {e}")
 
 # --- ROUTING ---
 if not st.session_state.logged_in:
