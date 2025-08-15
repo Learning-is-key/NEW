@@ -339,38 +339,39 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
         - **Suggestions or bugs?** Drop a message at `support@legalease.com`.
         """)
         st.image("flowchart.png.png", caption="LegalLite App Flow", width=500)
-
+        
     if choice == "🚨 Risky Terms Detector":
-    st.subheader("🚨 Risky Terms Detector")
-    uploaded_file = st.file_uploader("Upload a legal PDF", type=["pdf"])
+        st.subheader("🚨 Risky Terms Detector")
+        uploaded_file = st.file_uploader("Upload a legal PDF", type=["pdf"])
 
-    if uploaded_file:
-        try:
-            # --- Extract PDF text ---
-            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-            full_text = "".join([page.get_text() for page in doc])
+        if uploaded_file:
+            try:
+                # --- Extract PDF text ---
+                doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+                full_text = "".join([page.get_text() for page in doc])
 
-            # --- Step 1: Keyword Scan ---
-            risky = find_risky_terms(full_text)
-            if risky:
-                st.error("⚠️ Risky Terms Found:")
-                for term in risky:
+                # --- Step 1: Keyword Scan ---
+                risky = find_risky_terms(full_text)
+                if risky:
+                    st.error("⚠️ Risky Terms Found:")
+                    for term in risky:
                     st.markdown(f"- **{term}**")
-            else:
-                st.success("✅ No risky terms detected based on keyword scan.")
+                else:
+                    st.success("✅ No risky terms detected based on keyword scan.")
 
-            # --- Step 2: Optional AI Analysis ---
-            if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
-                if st.button("🤖 Run AI Risk Analysis"):
-                    with st.spinner("Running AI risk analysis..."):
-                        ai_result = ai_risk_analysis(full_text, st.session_state.api_key)
-                        st.subheader("🧠 AI Risk Analysis Result")
-                        st.write(ai_result)
-            elif st.session_state.mode != "Use Your Own OpenAI API Key":
-                st.info("ℹ️ For AI-powered risk analysis, use the 'Use Your Own OpenAI API Key' mode.")
+                # --- Step 2: Optional AI Analysis ---
+                if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
+                    if st.button("🤖 Run AI Risk Analysis"):
+                        with st.spinner("Running AI risk analysis..."):
+                            ai_result = ai_risk_analysis(full_text, st.session_state.api_key)
+                            st.subheader("🧠 AI Risk Analysis Result")
+                            st.write(ai_result)
+                elif st.session_state.mode != "Use Your Own OpenAI API Key":
+                    st.info("ℹ️ For AI-powered risk analysis, use the 'Use Your Own OpenAI API Key' mode.")
 
-        except Exception as e:
-            st.error(f"❌ Error reading PDF: {e}")
+            except Exception as e:
+                st.error(f"❌ Error reading PDF: {e}")
+
 
 # --- ROUTING ---
 if not st.session_state.logged_in:
