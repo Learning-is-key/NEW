@@ -368,7 +368,7 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                 elif st.session_state.mode != "Use Your Own OpenAI API Key":
                     st.info("ℹ️ For AI-powered risk analysis, use the 'Use Your Own OpenAI API Key' mode.")
     except Exception as e:
-                st.error(f"❌ Error reading PDF: {e}")
+        st.error(f"❌ Error reading PDF: {e}")
 
 # --- ROUTING ---
 if not st.session_state.logged_in:
