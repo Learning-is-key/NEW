@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import fitz  # PyMuPDF
 import requests
@@ -9,11 +10,15 @@ from reportlab.pdfgen import canvas
 from db import init_db, register_user, login_user, save_upload, get_user_history
 from gtts import gTTS   # 🎤 Voice summary
 
+
+HF_TOKEN = os.getenv("HF_TOKEN")
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+
 # Load Hugging Face token
 try:
     hf_token = st.secrets["HF_TOKEN"]
 except Exception:
-    hf_token = ""
+    hf_token = ""    
 
 # --- INIT DB ---
 init_db()
@@ -96,6 +101,15 @@ def query_huggingface_api(prompt):
 
     except Exception as e:
         return f"❌ Exception: {str(e)}"
+
+def query_hf_risk_analyzer(prompt):
+    RISK_ANALYZER_URL = "https://api-inference.huggingface.co/models/google/flan-t5-xl"
+    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 500}}
+    response = requests.post(RISK_ANALYZER_URL, headers=headers, json=payload)
+    try:
+        return response.json()[0]["generated_text"]
+    except Exception as e:
+        return f"Error: {e} | Response: {response.text}"
 
 # --- LOGIN SECTION ---
 def login_section():
@@ -360,18 +374,45 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                     st.success("✅ No risky terms detected based on keyword scan.")
 
                 # --- Step 2: Optional AI Analysis ---
-                if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
-                    if st.button("🤖 Run AI Risk Analysis"):
-                        with st.spinner("Running AI risk analysis..."):
-                            ai_result = ai_risk_analysis(full_text, st.session_state.api_key)
-                            st.subheader("🧠 AI Risk Analysis Result")
-                            st.write(ai_result)
-                elif st.session_state.mode != "Use Your Own OpenAI API Key":
-                    st.info("ℹ️ For AI-powered risk analysis, use the 'Use Your Own OpenAI API Key' mode.")
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
+                        if st.button("🤖 Run AI Risk Analysis (OpenAI)"):
+                            with st.spinner("Running OpenAI risk analysis..."):
+                                ai_result = ai_risk_analysis(full_text, st.session_state.api_key)
+                                st.subheader("🧠 AI Risk Analysis Result (OpenAI)")
+                                st.write(ai_result)
+
+                with col2:
+                    if st.button("🤖 Run AI Risk Analysis (Hugging Face)"):
+                        with st.spinner("Running Hugging Face risk analysis..."):
+                            hf_prompt = f"""
+                            Identify and list all clauses in the following legal document that could pose legal or financial risks to the signer. 
+                            For each risky clause, explain why it is risky and suggest a mitigation.
+
+                            Document:
+                            {full_text}
+                            """
+                            hf_result = query_hf_risk_analyzer(hf_prompt)
+                            st.markdown(
+                                        f"<div style='text-align: right; white-space: pre-wrap;'>{hf_result}</div>",
+                                        unsafe_allow_html=True
+                            )
+                            st.subheader("🧠 AI Risk Analysis Result (Hugging Face)")
+                            st.write(hf_result)
+                    if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
+                        if st.button("🤖 Run AI Risk Analysis"):
+                            with st.spinner("Running AI risk analysis..."):
+                                ai_result = ai_risk_analysis(full_text, st.session_state.api_key)
+                                st.subheader("🧠 AI Risk Analysis Result")
+                                st.write(ai_result)
+                    elif st.session_state.mode != "Use Your Own OpenAI API Key":
+                        st.info("ℹ️ For AI-powered risk analysis, use the 'Use Your Own OpenAI API Key' mode.")
 
             except Exception as e:
                 st.error(f"❌ Error reading PDF: {e}")
-
+                
 
 # --- ROUTING ---
 if not st.session_state.logged_in:
