@@ -10,15 +10,14 @@ from reportlab.pdfgen import canvas
 from db import init_db, register_user, login_user, save_upload, get_user_history
 from gtts import gTTS   # 🎤 Voice summary
 
-
-HF_TOKEN = os.getenv("HF_TOKEN")
-headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-
 # Load Hugging Face token
 try:
     hf_token = st.secrets["HF_TOKEN"]
 except Exception:
     hf_token = ""    
+    
+HF_TOKEN = os.getenv("HF_TOKEN")
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 # --- INIT DB ---
 init_db()
