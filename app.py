@@ -1,147 +1,299 @@
 import streamlit as st
 import fitz  # PyMuPDF
+import requests
+import hashlib
+from io import BytesIO
+from datetime import datetime
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from db import init_db, register_user, login_user, save_upload, get_user_history
-from openai import OpenAI
+from gtts import gTTS   # 🎤 Voice summary
 
-# 🔐 API Key
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# Load Hugging Face token
+try:
+    hf_token = st.secrets["HF_TOKEN"]
+except Exception:
+    hf_token = ""
 
 # --- INIT DB ---
 init_db()
 
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="LegalLite", layout="centered", page_icon="⚖️")
+# --- CONFIG ---
+st.set_page_config(page_title="LegalLite", layout="wide", page_icon="⚖️")
+
+# --- HEADER BRANDING ---
+st.markdown("<h1 style='text-align: center; color: #3A6EA5;'>LegalLite ⚖️</h1>", unsafe_allow_html=True)
 
 # --- SESSION STATE ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "user_email" not in st.session_state:
-    st.session_state.user_email = ""
+for key in ["logged_in", "user_email", "mode", "api_key", "mode_chosen"]:
+    if key not in st.session_state:
+        st.session_state[key] = False if key == "logged_in" else ""
 
-# --- GLOBAL STYLING ---
-st.markdown("""
-    <style>
-        .block-container {
-            padding-top: 2rem;
-        }
-        .stTextInput>div>input, .stTextArea>div>textarea {
-            border-radius: 6px;
-            border: 1px solid #ccc;
-        }
-        .stButton>button {
-            background-color: #29465B;
-            color: white;
-            font-weight: 600;
-            border-radius: 6px;
-            padding: 0.5em 1.5em;
-        }
-        .summary-box {
-            background-color: #f7f9fb;
-            border: 1px solid #e1e1e1;
-            border-radius: 8px;
-            padding: 1rem;
-        }
-        footer {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
+# --- UTILITY ---
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-# --- HEADER ---
-st.markdown("<h1 style='text-align: center;'>⚖️ LegalLite</h1>", unsafe_allow_html=True)
-st.caption("Your AI legal document explainer — with login, upload history, and document simplification.")
+def generate_pdf(summary_text, filename):
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    c.setFont("Helvetica", 12)
+    margin = 40
+    y = height - margin
 
-# --- AUTH SECTIONS ---
+    c.drawString(margin, y, f"LegalLite Summary - {filename}")
+    y -= 20
+    c.drawString(margin, y, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    y -= 30
+
+    lines = summary_text.split('\n')
+    for line in lines:
+        for subline in [line[i:i+90] for i in range(0, len(line), 90)]:
+            if y < margin:
+                c.showPage()
+                c.setFont("Helvetica", 12)
+                y = height - margin
+            c.drawString(margin, y, subline)
+            y -= 20
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+# 🎤 --- VOICE SUMMARY ---
+def generate_voice(summary_text):
+    try:
+        tts = gTTS(summary_text, lang='en')
+        audio_path = "summary_audio.mp3"
+        tts.save(audio_path)
+        return audio_path
+    except Exception as e:
+        st.error(f"❌ Voice generation failed: {e}")
+        return None
+
+# --- HUGGING FACE API WRAPPER ---
+@st.cache_data
+def query_huggingface_api(prompt):
+    API_URL = "https://api-inference.huggingface.co/models/csebuetnlp/mT5_multilingual_XLSum"
+    headers = {"Authorization": f"Bearer {hf_token}"}
+
+    try:
+        response = requests.post(API_URL, headers=headers, json={
+            "inputs": prompt,
+            "parameters": {"max_length": 200, "do_sample": False},
+            "options": {"wait_for_model": True}
+        })
+        if response.status_code != 200:
+            return f"❌ API Error {response.status_code}: {response.text}"
+
+        output = response.json()
+        if isinstance(output, list) and len(output) > 0:
+            return output[0].get("summary_text", str(output[0]))
+        if isinstance(output, dict) and "summary_text" in output:
+            return output["summary_text"]
+        else:
+            return f"⚠️ Unexpected output: {output}"
+
+    except Exception as e:
+        return f"❌ Exception: {str(e)}"
+
+# --- LOGIN SECTION ---
 def login_section():
-    st.subheader("🔐 Login")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        user = login_user(email, password)
-        if user:
-            st.session_state.logged_in = True
-            st.session_state.user_email = email
-            st.success(f"Welcome back, {email}!")
-        else:
-            st.error("Invalid email or password.")
+    with st.container():
+        st.subheader("🔐 Login to Your Account")
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            user = login_user(email, hash_password(password))
+            if user:
+                st.session_state.logged_in = True
+                st.session_state.user_email = email
+                st.success(f"Welcome back, {email}!")
+            else:
+                st.error("Invalid email or password.")
 
+# --- MODE SELECTION ---
+def choose_mode():
+    st.markdown("### 🎛️ Choose how you'd like to use LegalLite:")
+    st.markdown("Pick a mode based on your preference:")
+
+    col1, col2, col3 = st.columns(3)
+    if "api_input" not in st.session_state:
+        st.session_state.api_input = ""
+
+    with col1:
+        if st.button("🧪 Demo Mode"):
+            st.session_state.mode = "Demo Mode"
+            st.session_state.mode_chosen = True
+
+    with col2:
+        if st.button("🔐 Use Your API Key"):
+            st.session_state.mode = "Use Your Own OpenAI API Key"
+            st.session_state.mode_chosen = False
+
+    with col3:
+        if st.button("🌐 Hugging Face"):
+            st.session_state.mode = "Use Open-Source AI via Hugging Face"
+            st.session_state.mode_chosen = True
+
+    if st.session_state.mode == "Use Your Own OpenAI API Key" and not st.session_state.mode_chosen:
+        st.session_state.api_input = st.text_input("Paste your OpenAI API Key", type="password")
+        if st.button("➡️ Continue"):
+            if st.session_state.api_input.strip() == "":
+                st.warning("Please enter your API key.")
+            else:
+                st.session_state.api_key = st.session_state.api_input
+                st.session_state.mode_chosen = True
+
+# --- SIGNUP SECTION ---
 def signup_section():
-    st.subheader("📝 Sign Up")
-    email = st.text_input("New Email")
-    password = st.text_input("New Password", type="password")
-    if st.button("Create Account"):
-        if register_user(email, password):
-            st.success("🎉 Account created! You can now log in.")
-        else:
-            st.error("User already exists.")
+    with st.container():
+        st.subheader("📝 Create an Account")
+        email = st.text_input("New Email")
+        password = st.text_input("New Password", type="password")
+        if st.button("Sign Up"):
+            if register_user(email, hash_password(password)):
+                st.success("Account created! You can now login.")
+            else:
+                st.error("User already exists.")  
 
 # --- MAIN APP ---
 def app_main():
-    with st.sidebar:
-        st.markdown("## ⚖️ LegalLite")
-        choice = st.radio("Navigate", ["📤 Upload", "📂 History", "🚪 Logout"])
+    if st.button("🔙 Back to Mode Selection"):
+        st.session_state.mode_chosen = False
+        st.session_state.mode = ""
+        st.session_state.api_key = ""
+        return
 
-    if choice == "📤 Upload":
-        st.subheader("📤 Upload Legal PDF")
-        uploaded_file = st.file_uploader("Choose a legal document", type=["pdf"])
+    st.sidebar.title("📓 Navigation")
+    choice = st.sidebar.radio("Go to", ["👤 Profile", "📄 Upload & Simplify", "📂 My History", "❓ Help & Feedback"])
+
+    if choice == "👤 Profile":
+        st.subheader("👤 Your Profile")
+        st.write(f"**Logged in as:** `{st.session_state.user_email}`")
+        if st.button("🚪 Logout"):
+            st.session_state.logged_in = False
+            st.session_state.user_email = ""
+            st.success("Logged out. Refresh to login again.")
+
+    if choice == "📄 Upload & Simplify":
+        st.subheader("📄 Upload Your Legal Document (PDF)")
+        uploaded_file = st.file_uploader("Select a legal PDF", type=["pdf"])
 
         if uploaded_file:
-            st.info(f"Selected file: `{uploaded_file.name}`")
-            with st.spinner("📖 Extracting text..."):
-                doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-                full_text = "".join([page.get_text() for page in doc])
-            st.success("✅ PDF text extracted.")
-            st.text_area("📄 Extracted Text", full_text, height=300)
+            doc_name = uploaded_file.name.lower()
+            if uploaded_file.size > 3 * 1024 * 1024:
+                st.error("⚠️ File too large. Please upload PDFs under 3MB.")
+                return
+            try:
+                with st.spinner("Reading and extracting text..."):
+                    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+                    full_text = "".join([page.get_text() for page in doc])
+                st.success("✅ Text extracted from PDF.")
+                with st.expander("📄 View Extracted Text"):
+                    st.text_area("", full_text, height=300)
+            except Exception as e:
+                st.error(f"❌ Error reading PDF: {str(e)}")
+                return
+        
+        if st.button("🧐 Simplify Document"):
+            simplified = None
+            if st.session_state.mode == "Use Your Own OpenAI API Key":
+                if not st.session_state.api_key:
+                    st.error("❌ API key not found. Please go back and enter your key.")
+                    return
+                try:
+                    from openai import OpenAI
+                    client = OpenAI(api_key=st.session_state.api_key)
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "You are a legal assistant. Simplify legal documents in plain English."},
+                            {"role": "user", "content": full_text}
+                        ]
+                    )
+                    simplified = response.choices[0].message.content
+                except Exception as e:
+                    st.error(f"❌ OpenAI Error: {str(e)}")
+                    return
+                        
+            elif st.session_state.mode == "Use Open-Source AI via Hugging Face":
+                prompt = f"""Summarize the following document in bullet points:\n\n{full_text}"""
+                with st.spinner("Simplifying using Hugging Face..."):
+                    simplified = query_huggingface_api(prompt)
 
-            if st.button("🧠 Simplify Document"):
-                with st.spinner("Processing with AI..."):
-                    try:
-                        response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
-                            messages=[
-                                {"role": "system", "content": "You're a legal document simplifier."},
-                                {"role": "user", "content": full_text}
-                            ]
+            else:
+                # Demo mode logic (unchanged)
+                if "rental" in doc_name:
+                    simplified = """This is a rental agreement..."""
+                elif "nda" in doc_name:
+                    simplified = """This Non-Disclosure Agreement..."""
+                elif "employment" in doc_name:
+                    simplified = """This is an official job contract..."""
+                else:
+                    simplified = "📜 Demo Summary: Unable to identify document type."
+
+            if simplified:
+                st.subheader("✅ Simplified Summary")
+                st.success(simplified)
+                save_upload(st.session_state.user_email, uploaded_file.name, simplified)
+
+                # 📥 PDF Download
+                pdf_file = generate_pdf(simplified, uploaded_file.name)
+                st.download_button(
+                    label="📅 Download Summary as PDF",
+                    data=pdf_file,
+                    file_name=f"simplified_{uploaded_file.name.replace('.pdf','')}.pdf",
+                    mime="application/pdf"
+                )
+
+                # 🎤 Voice Summary
+                audio_file_path = generate_voice(simplified)
+                if audio_file_path:
+                    with open(audio_file_path, "rb") as audio_file:
+                        audio_bytes = audio_file.read()
+                        st.audio(audio_bytes, format="audio/mp3")
+                        st.download_button(
+                            label="🎧 Download Voice Summary",
+                            data=audio_bytes,
+                            file_name="summary_audio.mp3",
+                            mime="audio/mp3"
                         )
-                        simplified = response.choices[0].message.content
-                        save_upload(st.session_state.user_email, uploaded_file.name, simplified)
 
-                        st.subheader("✅ Simplified Summary")
-                        with st.container():
-                            st.markdown(f"<div class='summary-box'>{simplified}</div>", unsafe_allow_html=True)
-
-                            st.markdown("---")
-                            st.download_button(
-                                label="📥 Download Summary as TXT",
-                                data=simplified,
-                                file_name=f"{uploaded_file.name}_summary.txt",
-                                mime="text/plain"
-                            )
-                    except Exception as e:
-                        st.error(f"OpenAI error: {str(e)}")
-
-    elif choice == "📂 History":
-        st.subheader("📂 Your Upload History")
+    if choice == "📂 My History":
+        st.subheader("📂 Your Uploaded History")
         history = get_user_history(st.session_state.user_email)
         if not history:
-            st.info("No previous uploads found.")
+            st.info("No uploads yet.")
         else:
-            for file, summary, time in history:
-                with st.expander(f"📄 {file} | 🕒 {time}"):
-                    st.markdown(f"<div class='summary-box'>{summary}</div>", unsafe_allow_html=True)
+            for file_name, summary, timestamp in history:
+                with st.expander(f"📄 {file_name} | 🕒 {timestamp}"):
+                    st.text(summary)
 
-    elif choice == "🚪 Logout":
-        st.session_state.logged_in = False
-        st.session_state.user_email = ""
-        st.success("✅ Logged out. Refresh to login again.")
+    if choice == "❓ Help & Feedback":
+        st.subheader("❓ Help & Feedback")
+        st.markdown("""
+        - **About LegalEase**: This tool simplifies legal documents in plain English using AI.
+        - **Modes**:
+            - *Demo Mode*: Uses sample summaries.
+            - *OpenAI API*: Your key, high-quality output.
+            - *Hugging Face*: Free, open-source summarization.
+        - **Suggestions or bugs?** Drop a message at `support@legalease.com`.
+        """)
+        st.image("flowchart.png.png", caption="LegalLite App Flow", width=500)
 
 # --- ROUTING ---
 if not st.session_state.logged_in:
-    tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
-    with tab1:
+    login_tab, signup_tab = st.tabs(["Login", "Sign Up"])
+    with login_tab:
         login_section()
-    with tab2:
+    with signup_tab:
         signup_section()
 else:
-    app_main()
+    if not st.session_state.mode_chosen:
+        choose_mode()
+    else:
+        app_main()
 
 # --- FOOTER ---
-st.markdown("<hr><p style='text-align: center; color: gray;'>© 2025 LegalLite. Built with ❤️ using Streamlit.</p>", unsafe_allow_html=True)
+st.markdown("<hr><p style='text-align: center; color: gray;'>© 2025 LegalLite. Built with ❤️ in Streamlit.</p>", unsafe_allow_html=True)
