@@ -395,12 +395,13 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                             {full_text}
                             """
                             hf_result = query_hf_risk_analyzer(hf_prompt)
+                             st.subheader("🧠 AI Risk Analysis Result (Hugging Face)")
                             st.markdown(
                                         f"<div style='text-align: right; white-space: pre-wrap;'>{hf_result}</div>",
                                         unsafe_allow_html=True
                             )
-                            st.subheader("🧠 AI Risk Analysis Result (Hugging Face)")
-                            st.write(hf_result)
+                           
+                           # st.write(hf_result)
                     if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
                         if st.button("🤖 Run AI Risk Analysis"):
                             with st.spinner("Running AI risk analysis..."):
