@@ -103,7 +103,7 @@ def query_huggingface_api(prompt):
         return f"❌ Exception: {str(e)}"
 
 def query_hf_risk_analyzer(prompt):
-    RISK_ANALYZER_URL = "https://api-inference.huggingface.co/models/google/flan-t5-xl"
+    RISK_ANALYZER_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
     payload = {"inputs": prompt, "parameters": {"max_new_tokens": 500}}
     response = requests.post(RISK_ANALYZER_URL, headers=headers, json=payload)
     try:
