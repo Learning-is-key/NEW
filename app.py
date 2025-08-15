@@ -103,7 +103,7 @@ def query_huggingface_api(prompt):
 
 def query_hf_risk_analyzer(prompt):
     RISK_ANALYZER_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 500,"return_full_text": Flase},"options":{"wait_for_model": True}}
+    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 500,"return_full_text": False},"options":{"wait_for_model": True}}
     response = requests.post(RISK_ANALYZER_URL, headers=headers, json=payload)
     try:
         return response.json()[0]["generated_text"]
