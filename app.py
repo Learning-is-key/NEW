@@ -355,7 +355,7 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                 if risky:
                     st.error("⚠️ Risky Terms Found:")
                     for term in risky:
-                    st.markdown(f"- **{term}**")
+                        st.markdown(f"- **{term}**")
                 else:
                     st.success("✅ No risky terms detected based on keyword scan.")
 
