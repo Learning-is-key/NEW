@@ -344,7 +344,7 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
     st.subheader("🚨 Risky Terms Detector")
     uploaded_file = st.file_uploader("Upload a legal PDF", type=["pdf"])
 
-     if uploaded_file:
+    if uploaded_file:
         try:
             doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
             full_text = "".join([page.get_text() for page in doc])
@@ -368,7 +368,7 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
             elif st.session_state.mode != "Use Your Own OpenAI API Key":
                 st.info("ℹ️ For AI-powered risk analysis, use the 'Use Your Own OpenAI API Key' mode.")
 
-         except Exception as e:
+     except Exception as e:
             st.error(f"❌ Error reading PDF: {e}")
 
 # --- ROUTING ---
