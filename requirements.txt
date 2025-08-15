@@ -2,5 +2,6 @@ streamlit
 openai>=1.0.0
 requests
 PyMuPDF==1.22.3
+reportlab
 gTTS
 
