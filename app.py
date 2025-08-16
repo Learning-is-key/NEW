@@ -373,23 +373,6 @@ In short: This contract outlines Priya’s job, salary, rules during and after e
                     st.success("✅ No risky terms detected based on keyword scan.")
 
                 # --- Step 2: Optional AI Analysis ---
-                if st.button("🤖 Run AI Risk Analysis (Hugging Face)"):
-                        with st.spinner("Running Hugging Face risk analysis..."):
-                            hf_prompt = f"""
-                            Identify and list all clauses in the following legal document that could pose legal or financial risks to the signer. 
-                            For each risky clause, explain why it is risky and suggest a mitigation.
-
-                            Document:
-                            {full_text}
-                            """
-                            hf_result = query_hf_risk_analyzer(hf_prompt)
-                            st.subheader("🧠 AI Risk Analysis Result (Hugging Face)")
-                            st.markdown(
-                                        f"<div style='text-align: left; white-space: pre-wrap;'>{hf_result}</div>",
-                                        unsafe_allow_html=True
-                            )
-                           
-                           # st.write(hf_result)
                 if st.session_state.mode == "Use Your Own OpenAI API Key" and st.session_state.api_key:
                         if st.button("🤖 Run AI Risk Analysis"):
                             with st.spinner("Running AI risk analysis..."):
